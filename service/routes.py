@@ -51,17 +51,29 @@ def create_accounts():
     if not data:
         abort(status.HTTP_400_BAD_REQUEST, "Invalid JSON body")
 
+    required_fields = ["name", "email", "address"]
+    missing_fields = [field for field in required_fields if field not in data]
+
+    if missing_fields:
+        error_message = f"Missing required fields: {', '.join(missing_fields)}"
+        app.logger.error(error_message)
+        abort(status.HTTP_400_BAD_REQUEST, error_message)
+
     account = Account()
     try:
         account.deserialize(data)
         account.create()
+    except DataValidationError as e:
+        app.logger.error("Data validation error: %s", str(e))
+        abort(status.HTTP_400_BAD_REQUEST, str(e))
     except Exception as e:
-        app.logger.error("Error creating account: %s", str(e))
+        app.logger.error("Unexpected error creating account: %s", str(e))
         abort(status.HTTP_500_INTERNAL_SERVER_ERROR, "Could not create account")
 
     message = account.serialize()
     location_url = url_for("get_accounts", account_id=account.id, _external=True)
     return make_response(jsonify(message), status.HTTP_201_CREATED, {"Location": location_url})
+
 
 
 ######################################################################
